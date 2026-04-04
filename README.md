@@ -8,11 +8,12 @@ A Python application that monitors system audio on Windows and sends alerts to H
 - Very low audio sensitivity threshold
 - Runs as a standalone Windows executable
 - Configurable via `.env` file
+- **Works without Stereo Mix** - auto-detects virtual audio devices or microphone fallback
 
 ## Requirements
 - Windows 10/11
 - Python 3.8+ (or use the packaged .exe)
-- WASAPI Stereo Mix enabled on your audio device
+- Audio device (Stereo Mix OR virtual audio device like VB-Audio Cable OR microphone)
 - Home Assistant instance with API access
 - Home Assistant long-lived access token
 
@@ -34,10 +35,24 @@ pip install -r requirements.txt
    HA_TOKEN=your_token_here
    ```
 
-### 3. Enable WASAPI Stereo Mix on Windows
-- Right-click speaker icon → Open Sound settings
-- Advanced → Volume mixer → App volume and device preferences
-- Find your audio device and enable Stereo Mix/Loopback
+### 3. Enable Audio Detection (Choose One)
+
+#### Option A: Enable Stereo Mix (Recommended)
+1. Right-click speaker icon → Open Sound settings
+2. Advanced → Volume mixer
+3. Find your audio device and enable "Stereo Mix" or "WASAPI Loopback"
+
+#### Option B: Install Virtual Audio Device
+If Stereo Mix isn't available:
+1. Install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free)
+2. Restart Windows
+3. Configure to route system audio to Virtual Cable
+4. The app will auto-detect it
+
+#### Option C: Use Microphone (Default Fallback)
+The app automatically falls back to microphone input if Stereo Mix/virtual device not found.
+
+**For detailed alternatives**: See [STEREO_MIX_ALTERNATIVES.md](STEREO_MIX_ALTERNATIVES.md)
 
 ### 4. Run the App
 ```bash

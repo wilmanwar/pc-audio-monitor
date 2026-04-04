@@ -56,6 +56,19 @@ For the app to detect **all system audio**, you should enable Stereo Mix:
 
 **Without Stereo Mix**: The app will fall back to using your microphone as input (less ideal).
 
+### No Stereo Mix? See Alternatives!
+
+If you can't find Stereo Mix:
+- Your audio driver might not support it
+- It might be hidden or disabled
+- Your audio device might not have this feature
+
+**See STEREO_MIX_ALTERNATIVES.md** for solutions including:
+- VB-Audio Virtual Cable (recommended)
+- VoiceMeeter virtual mixer
+- Updating audio drivers
+- Using alternative audio devices
+
 ### Home Assistant Configuration
 
 #### Create Long-Lived Access Token
