@@ -35,24 +35,28 @@ pip install -r requirements.txt
    HA_TOKEN=your_token_here
    ```
 
-### 3. Enable Audio Detection (Choose One)
+### 3. Enable Audio Detection
 
-#### Option A: Enable Stereo Mix (Recommended)
-1. Right-click speaker icon → Open Sound settings
-2. Advanced → Volume mixer
-3. Find your audio device and enable "Stereo Mix" or "WASAPI Loopback"
+**See [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md) for your specific PC setup** - The guide covers:
+- ✅ **Stereo Mix** (if your PC supports it - easiest)
+- ✅ **VoiceMeeter Point** (recommended for most users - works on any PC)
+- ✅ **Microphone fallback** (works everywhere, limited quality)
 
-#### Option B: Install Virtual Audio Device
-If Stereo Mix isn't available:
-1. Install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free)
-2. Restart Windows
-3. Configure to route system audio to Virtual Cable
-4. The app will auto-detect it
+### Quick Audio Setup
 
-#### Option C: Use Microphone (Default Fallback)
-The app automatically falls back to microphone input if Stereo Mix/virtual device not found.
+1. **Try Stereo Mix first** (easiest if available)
+   - Right-click speaker → Sound settings → Advanced → Volume mixer
+   - Look for "Stereo Mix" and enable it
+   
+2. **If not available, install VoiceMeeter** (recommended)
+   - Download from https://vb-audio.com/Voicemeeter/
+   - Install and restart
+   - The app will auto-detect Voicemeeter Point devices
+   
+3. **Fallback: Use Microphone** (always works)
+   - App automatically uses your default mic if nothing else is available
 
-**For detailed alternatives**: See [STEREO_MIX_ALTERNATIVES.md](STEREO_MIX_ALTERNATIVES.md)
+**→ Full setup instructions and troubleshooting in [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md)**
 
 ### 4. Run the App
 ```bash
