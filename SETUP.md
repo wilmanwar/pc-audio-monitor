@@ -4,6 +4,16 @@ This guide walks you through getting the PC Audio Monitor running and connected 
 
 ## Quick Start (5 minutes)
 
+### ⚠️ CRITICAL: Enable Microphone Permissions First
+
+Even though the app uses Stereo Mix or VB-Audio Cable, Python needs microphone permission to access audio devices.
+
+1. Press Windows Key + I to open Settings
+2. Go to: **Privacy & security → Microphone**
+3. Turn ON: **"Microphone access"**
+4. If Python is listed, make sure it's toggled ON
+5. Restart the app if it was already running
+
 ### 1. Install Python Dependencies
 ```bash
 cd C:\path\to\test-one
@@ -56,18 +66,19 @@ For the app to detect **all system audio**, you should enable Stereo Mix:
 
 **Without Stereo Mix**: The app will fall back to using your microphone as input (less ideal).
 
-### No Stereo Mix? See Alternatives!
+### No Stereo Mix? Use VB-Audio Cable!
 
 If you can't find Stereo Mix:
 - Your audio driver might not support it
 - It might be hidden or disabled
 - Your audio device might not have this feature
 
-**See STEREO_MIX_ALTERNATIVES.md** for solutions including:
-- VB-Audio Virtual Cable (recommended)
-- VoiceMeeter virtual mixer
-- Updating audio drivers
-- Using alternative audio devices
+**Use VB-Audio Cable instead (recommended for any PC):**
+
+See [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md) for complete setup including:
+- VB-Audio Virtual Cable installation
+- Loopback listening configuration
+- Troubleshooting audio detection issues
 
 ### Home Assistant Configuration
 
@@ -158,6 +169,22 @@ ALERT: Sound has stopped! Notifying Home Assistant...
 ```
 
 ## Troubleshooting
+
+### "PortAudioError" or "TypeError" when running tests
+
+**This is almost always due to disabled microphone permissions!**
+
+1. Check Windows microphone permissions:
+   - Settings → Privacy & security → Microphone
+   - Toggle: "Microphone access" to ON
+   - If Python is listed, toggle it to ON
+
+2. Restart the app completely
+
+3. Test again:
+   ```bash
+   python test_audio_devices.py
+   ```
 
 ### "No loopback device found"
 - Stereo Mix not enabled on your audio device

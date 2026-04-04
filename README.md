@@ -13,11 +13,23 @@ A Python application that monitors system audio on Windows and sends alerts to H
 ## Requirements
 - Windows 10/11
 - Python 3.8+ (or use the packaged .exe)
+- **Microphone permissions enabled** (see step below - CRITICAL!)
 - Audio device (Stereo Mix OR virtual audio device like VB-Audio Cable OR microphone)
 - Home Assistant instance with API access
 - Home Assistant long-lived access token
 
 ## Setup
+
+### ⚠️ CRITICAL: Enable Microphone Permissions First
+
+Even though the app uses VB-Audio Cable or Stereo Mix, Python's audio libraries need microphone permission to access ANY recording device.
+
+1. Open Windows Settings (Windows Key + I)
+2. Go to: **Privacy & security → Microphone**
+3. Turn ON: **"Microphone access"**
+4. If Python is listed, make sure it's toggled ON
+
+**Without this, all audio detection will fail!**
 
 ### 1. Clone and Install Dependencies
 ```bash

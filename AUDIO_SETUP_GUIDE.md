@@ -2,6 +2,28 @@
 
 This app automatically detects and works with your PC's audio setup. Choose the best option for YOUR system.
 
+## ⚠️ CRITICAL FIRST STEP: Enable Microphone Permissions
+
+**This must be done BEFORE anything else**, even though the app uses VB-Audio Cable or Stereo Mix, not your microphone.
+
+Python's audio libraries need microphone permission to access ANY audio recording device. Without this, all audio tests will fail.
+
+### Enable Microphone Permissions
+
+1. **Open Windows Settings** (Windows Key + I)
+2. Go to: **Privacy & security → Microphone**
+3. Make sure **"Microphone access"** is turned ON
+4. If you see "Python" listed, make sure its toggle is ON
+5. Restart the app if it was already running
+
+**If you skip this step, you'll see:**
+```
+[ERROR] - PortAudioError: Error opening InputStream
+[ERROR] - TypeError: wait() got an unexpected keyword
+```
+
+---
+
 ## How the App Works
 
 The app has **automatic device detection** that tries these options in order:
@@ -252,8 +274,50 @@ If the app picks the wrong device:
 
 ---
 
+## Troubleshooting: "All Tests Show [ERROR]"
+
+If `python test_audio_devices.py` shows errors for all devices:
+
+### 1. Check Microphone Permissions (Most Common Cause!)
+
+```
+Settings → Privacy & security → Microphone
+```
+- Toggle: "Microphone access" to ON
+- If Python is listed, toggle it to ON
+- **Restart the app**
+
+This is the most likely cause if nothing works!
+
+### 2. Verify Your Audio Setup
+
+- For Stereo Mix: Check it's enabled in Sound Settings
+- For VB-Audio Cable: Check "Listen to this device" is enabled
+- For Microphone: Make sure your microphone is plugged in
+
+### 3. Restart Everything
+
+```bash
+# Stop the app (Ctrl+C)
+# Restart Windows (important!)
+# Run test again
+python test_audio_devices.py
+```
+
+### 4. Check with Microphone Fallback
+
+Try speaking into your microphone while running:
+```bash
+python test_audio_devices.py
+```
+
+If the microphone devices show audio, permissions are now working. Then check Stereo Mix or VB-Audio.
+
+---
+
 ## Complete Setup Checklist
 
+- [ ] **Microphone permissions ENABLED** (Settings → Privacy & security → Microphone)
 - [ ] Audio device available (Stereo Mix, VB-Audio Cable, or Microphone)
 - [ ] Tested with: `python test_audio_devices.py`
 - [ ] Audio playing when testing

@@ -6,8 +6,36 @@ This is the recommended setup for system audio capture on any Windows PC.
 
 - VB-Audio Cable installed (download from https://vb-audio.com/Cable/)
 - Windows Sound Settings access
+- **CRITICAL: Microphone permissions must be enabled** (see Step 0 below)
 
 ## Step-by-Step Setup
+
+### Step 0: Enable Microphone Permissions (CRITICAL!)
+
+**Why this is needed:** Python's audio library needs microphone permissions to access ANY audio recording device, even though the PC Audio Monitor uses VB-Audio Cable, not the microphone. Without this, the app cannot access audio devices.
+
+1. **Open Windows Settings**
+   - Press `Windows Key + I`
+   - Go to: Settings → Privacy & security → Microphone
+
+2. **Grant microphone access to Python**
+   - Look for "Python" or "python.exe" in the app list
+   - Make sure it shows as "Allowed" (toggle ON)
+   - If Python isn't listed, restart the app and it should appear
+
+3. **Alternative: Enable for all apps**
+   - If you don't see Python listed, enable "Microphone access" globally
+   - This allows all applications to use audio recording
+
+4. **Verify it worked**
+   - Run: `python test_audio_devices.py` (with music playing)
+   - If you see device levels (not just [ERROR]), permissions are working
+
+**Without this step, you'll see errors like:**
+```
+PortAudioError: Error opening InputStream
+TypeError: wait() got an unexpected keyword argument 'timeout'
+```
 
 ### Step 1: Install VB-Audio Cable
 
@@ -150,8 +178,27 @@ Windows Sets Output to: VB-Audio Cable
    - If folder doesn't exist, VB-Audio isn't installed properly
    - Reinstall VB-Audio Cable
 
+### "Audio test fails with PortAudioError or TypeError"
+
+**This almost always means microphone permissions are disabled!**
+
+1. Check Windows microphone permissions:
+   - Settings → Privacy & security → Microphone
+   - Make sure "Microphone access" is ON
+   - If Python is listed, make sure its toggle is ON
+
+2. Restart the Python app after enabling permissions
+
+3. Verify with:
+   ```bash
+   python test_audio_devices.py
+   ```
+   - Should now show audio levels for CABLE devices
+   - Should NOT show [ERROR] for all devices
+
 ## Quick Checklist
 
+- [ ] **Microphone permissions enabled** (Settings → Privacy & security → Microphone)
 - [ ] VB-Audio Cable installed (appears in Sound Settings)
 - [ ] VBCABLE_ControlPanel.exe opened and configured
 - [ ] Windows output device set to "CABLE Input" or "VB-Audio Cable"
