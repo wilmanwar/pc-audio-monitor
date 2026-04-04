@@ -7,9 +7,11 @@ This app works on **any Windows PC**, but the audio capture method depends on yo
 ```
 Does your PC have Stereo Mix enabled?
 ├─ YES → Use Stereo Mix (Best option - easiest)
-├─ NO  → Do you want to install VoiceMeeter?
-│       ├─ YES → Use VoiceMeeter Point devices (Recommended)
-│       └─ NO  → Use Microphone fallback (Works, limited quality)
+├─ NO  → Do you have VB-Audio Cable installed?
+│       ├─ YES (Want Simple) → Use VB-Audio Cable (Simple, no mixer)
+│       ├─ YES (Want Full Control) → Use VoiceMeeter + Cable (Mixer features)
+│       ├─ NO (Want To Install) → Install VoiceMeeter (Recommended)
+│       └─ NO (Don't Want Install) → Use Microphone fallback
 └─ BLOCKED → Check audio driver or enable in BIOS
 ```
 
@@ -117,6 +119,77 @@ Monitor ready. Waiting for audio status changes...
 - Voicemeeter Point devices are compatible with the sounddevice library
 - They provide clean system audio capture
 - Available on any Windows system with VoiceMeeter installed
+
+---
+
+## Option 2b: VB-Audio Cable Only (Simpler Alternative, No VoiceMeeter)
+
+**Best for**: Users who have VB-Audio Cable installed but want to avoid VoiceMeeter complexity
+
+### What is VB-Audio Cable?
+A virtual audio cable that routes audio from applications through a loopback device. The app can read from the cable directly without needing VoiceMeeter's mixer.
+
+### Installation
+
+1. **Check if VB-Audio Cable is installed**
+   - Open Windows Settings → Sound
+   - Look for "CABLE Input" or "CABLE Output" devices
+   - If visible, you already have it installed
+
+2. **If Not Installed**
+   - Visit: https://vb-audio.com/Cable/
+   - Download VB-Audio Cable
+   - Run installer, restart when done
+
+### Setup (Simple Method)
+
+1. **Route System Audio to Cable**
+   - Open Windows Settings → Sound
+   - Click "Volume mixer"
+   - For your application (YouTube, Spotify, etc):
+     - Set output to `CABLE Input` or `CABLE Output`
+
+2. **Enable Monitoring (So You Can Hear It)**
+   - Right-click CABLE Output device → Properties
+   - Advanced tab
+   - Check "Listen to this device"
+   - Select your speakers as the playback device
+
+3. **Run the App**
+   ```bash
+   python main.py
+   ```
+
+### Test It
+
+While music is playing:
+```bash
+python test_audio_devices.py
+```
+
+Look for `CABLE Output` or `CABLE Input` with a high audio level.
+
+### Why This Works
+- VB-Audio Cable creates a loopback device
+- Audio routed to the cable doesn't leave your PC
+- The app can read directly from the cable's input
+- Simpler than VoiceMeeter if you don't need mixer features
+
+### If It Doesn't Work
+
+**Check 1: Is audio routing to the cable?**
+- Run `test_audio_devices.py` with music playing
+- If CABLE doesn't show high audio levels, audio isn't routing to it
+- Double-check Windows Sound Settings
+
+**Check 2: Enable Cable monitoring**
+- CABLE Output device → Properties
+- Advanced tab → Listen to this device
+- This lets you hear the audio
+
+**Check 3: Try both Cable Input and Cable Output**
+- Some systems show them separately
+- Run the test tool to find which one has audio
 
 ---
 

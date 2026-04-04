@@ -184,6 +184,8 @@ class AudioCapture:
                 ('wasapi', 1),
                 # Voicemeeter Point - these work!
                 ('voicemeeter point', 1.5),
+                # VB-Audio Cable (simple option without VoiceMeeter)
+                ('cable', 2),
                 # VB-Audio Voicemeeter outputs (fallback)
                 ('voicemeeter out', 3),
             ]
