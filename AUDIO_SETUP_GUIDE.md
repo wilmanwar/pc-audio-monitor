@@ -8,6 +8,8 @@ This app automatically detects and works with your PC's audio setup. Choose the 
 
 Python's audio libraries need microphone permission to access ANY audio recording device. Without this, all audio tests will fail.
 
+**Having issues? See [TROUBLESHOOTING_AUDIO.md](TROUBLESHOOTING_AUDIO.md) for detailed solutions.**
+
 ### Enable Microphone Permissions
 
 1. **Open Windows Settings** (Windows Key + I)

@@ -78,6 +78,8 @@ See [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md) for your specific setup:
 
 **→ Full setup instructions and troubleshooting in [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md)**
 
+**→ Audio detection not working? See [TROUBLESHOOTING_AUDIO.md](TROUBLESHOOTING_AUDIO.md)**
+
 ### 4. Run the App
 ```bash
 python main.py
