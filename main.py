@@ -67,6 +67,7 @@ def main():
         chunk_duration = float(os.getenv('AUDIO_CHUNK_DURATION_SECONDS', '2.0'))
         monitor_interval = float(os.getenv('MONITOR_INTERVAL_SECONDS', '60'))
         cooldown = int(os.getenv('ALERT_COOLDOWN_SECONDS', '60'))
+        auto_detect = os.getenv('AUTO_DETECT_AUDIO', 'true').lower() in ['true', '1', 'yes']
         
         logger.info(f"Audio settings: threshold={threshold_db}dB, chunk={chunk_duration}s, cooldown={cooldown}s")
         logger.info(f"Monitor interval: {monitor_interval} seconds")
@@ -75,7 +76,7 @@ def main():
         alert_schedule = AlertSchedule.from_env()
         logger.info(f"Alert schedule: {alert_schedule.get_status()}")
         
-        audio_capture = AudioCapture(threshold_db=threshold_db, duration=chunk_duration)
+        audio_capture = AudioCapture(threshold_db=threshold_db, duration=chunk_duration, auto_detect=auto_detect)
         audio_monitor = AudioMonitor(
             on_sound_stopped=ha_notify,
             cooldown_seconds=cooldown,

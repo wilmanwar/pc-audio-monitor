@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class AudioCapture:
     """Captures and analyzes system audio using WASAPI loopback."""
     
-    def __init__(self, threshold_db: float = -40, duration: float = 2.0, samplerate: int = 44100):
+    def __init__(self, threshold_db: float = -40, duration: float = 2.0, samplerate: int = 44100, auto_detect: bool = False):
         """
         Initialize audio capture.
         
@@ -20,16 +20,135 @@ class AudioCapture:
             threshold_db: RMS threshold in dB below which audio is considered silence (-60 to -20)
             duration: Recording duration in seconds per analysis window
             samplerate: Sample rate in Hz (44100 or 48000 typical)
+            auto_detect: If True, scan all devices at startup to find active audio source
         """
         self.threshold_db = threshold_db
         self.duration = duration
         self.samplerate = samplerate
         self.device_id = None
-        self.device_id = self._find_loopback_device()
+        
+        # Try auto-detection if requested
+        if auto_detect:
+            self.device_id = self._auto_detect_active_audio()
+        
+        # Fall back to standard device selection if auto-detect failed or disabled
+        if self.device_id is None:
+            self.device_id = self._find_loopback_device()
+        
         # Query the device's native sample rate if available
         if self.device_id is not None:
             self._query_device_samplerate()
         
+    def _auto_detect_active_audio(self) -> Optional[int]:
+        """
+        Scan key audio devices to find which one has active sound.
+        
+        Focuses on the most likely sources: Voicemeeter Point devices and Stereo Mix.
+        Skips problematic devices that tend to hang or fail during recording.
+        
+        Returns:
+            Device ID of the device with most active audio, or None if all silent
+        """
+        logger.info("=" * 80)
+        logger.info("AUTO-DETECTING ACTIVE AUDIO SOURCE")
+        logger.info("=" * 80)
+        logger.info("Scanning audio devices for active sound...")
+        logger.info("Please keep your music/audio playing.")
+        logger.info("")
+        
+        devices = sd.query_devices()
+        device_levels = {}
+        
+        # Priority list of device names to test first
+        priority_names = [
+            'voicemeeter point',  # Best option
+            'stereo mix',         # Second best
+            'what u hear',        # Alternative Stereo Mix name
+            'wave out mix',       # Another Stereo Mix variant
+            'loopback',           # Generic loopback device
+            'voicemeeter out',    # VB-Audio Voicemeeter
+            'cable output',       # VB-Audio Cable
+            'microphone',         # Fallback
+        ]
+        
+        # Build list of candidate devices, sorted by priority
+        candidates = []
+        for priority_name in priority_names:
+            for idx, device in enumerate(devices):
+                if device['max_input_channels'] == 0:
+                    continue
+                if priority_name.lower() in device['name'].lower():
+                    candidates.append((idx, device['name']))
+        
+        # Test each candidate device
+        tested = set()
+        for idx, device_name in candidates:
+            if idx in tested:
+                continue
+            tested.add(idx)
+            
+            # Show progress
+            short_name = device_name[:50] if len(device_name) > 50 else device_name
+            logger.info(f"Testing [{idx:3d}] {short_name:50s} - Testing...")
+            
+            try:
+                # Try to record a short sample (0.5 seconds)
+                audio_data = sd.rec(
+                    int(44100 * 0.5),
+                    samplerate=44100,
+                    channels=2,
+                    device=idx,
+                    dtype='float32',
+                    blocksize=2048
+                )
+                sd.wait(timeout=2.0)  # Add timeout to prevent hanging
+                
+                # Calculate RMS level
+                if audio_data.ndim > 1:
+                    audio_data = np.mean(audio_data, axis=1)
+                
+                rms = np.sqrt(np.mean(np.square(audio_data)))
+                rms_db = 20 * np.log10(rms) if rms > 0 else -np.inf
+                
+                device_levels[idx] = (device_name, rms_db)
+                logger.info(f"  Result: {rms_db:7.1f} dB")
+            except Exception as e:
+                logger.info(f"  Skipped ({type(e).__name__})")
+        
+        logger.info("")
+        
+        if not device_levels:
+            logger.warning("Auto-detect failed on all devices. Using priority-based selection instead.")
+            logger.warning("This is normal on first startup. The app will select the best available device.")
+            logger.info("")
+            return None
+        
+        # Find device with highest audio level
+        active_devices = [(idx, name, level) for idx, (name, level) in device_levels.items() if level > -np.inf and level > -60]
+        
+        if not active_devices:
+            logger.warning("No active audio detected above -60 dB threshold.")
+            logger.info("This might mean:")
+            logger.info("  • Music/audio wasn't playing during auto-detect")
+            logger.info("  • Audio routing isn't set up correctly (check VoiceMeeter settings)")
+            logger.info("")
+            logger.info("Using priority-based device selection instead.")
+            logger.info("")
+            return None
+        
+        # Sort by audio level (highest first)
+        active_devices.sort(key=lambda x: x[2], reverse=True)
+        
+        best_idx, best_name, best_level = active_devices[0]
+        
+        logger.info("=" * 80)
+        logger.info("ACTIVE AUDIO AUTO-DETECTED!")
+        logger.info(f"Device ID {best_idx}: {best_name}")
+        logger.info(f"Audio Level: {best_level:.1f} dB")
+        logger.info("=" * 80)
+        logger.info("")
+        
+        return best_idx
     def _find_loopback_device(self) -> Optional[int]:
         """
         Find the WASAPI loopback device (Stereo Mix) or alternative virtual audio device.
