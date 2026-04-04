@@ -32,11 +32,12 @@ python main.py
 | File | Purpose |
 |------|---------|
 | `main.py` | Application entry point |
-| `audio_capture.py` | Audio detection (WASAPI) |
+| `audio_capture.py` | Audio detection (WASAPI/VoiceMeeter/Microphone) |
 | `audio_monitor.py` | State machine & transitions |
 | `alert_schedule.py` | Time-based alert scheduling |
 | `ha_notifier.py` | Home Assistant REST API |
 | `test_ha_integration.py` | Test HA connection |
+| `detect_audio_devices.py` | Audio device detector utility |
 | `run.bat` | Windows batch launcher |
 | `.env` | Your configuration |
 | `.env.example` | Configuration template |
@@ -44,8 +45,10 @@ python main.py
 | **Documentation:** |  |
 | `README.md` | Quick reference |
 | `SETUP.md` | Detailed setup & troubleshooting |
+| `AUDIO_SETUP_GUIDE.md` | **NEW** - Audio configuration for any PC |
 | `IMPLEMENTATION.md` | Technical overview |
 | `DEPLOYMENT.md` | Packaging & distribution |
+| `STEREO_MIX_ALTERNATIVES.md` | Alternative audio device options |
 
 ## Configuration Examples
 
@@ -68,11 +71,12 @@ AUDIO_THRESHOLD_DB=-60
 
 ## Next Steps
 
-1. **Enable Stereo Mix** on Windows (see SETUP.md)
-2. **Get Home Assistant token** (192.168.68.30:8123 → Profile)
-3. **Configure .env** with HA_HOST and HA_TOKEN
-4. **Test** with `python test_ha_integration.py`
-5. **Run** with `python main.py`
+1. **Detect your audio setup** - Run `python detect_audio_devices.py`
+2. **Follow audio guide** - See AUDIO_SETUP_GUIDE.md for your PC configuration
+3. **Get Home Assistant token** (192.168.68.30:8123 → Profile)
+4. **Configure .env** with HA_HOST and HA_TOKEN
+5. **Test** with `python test_ha_integration.py`
+6. **Run** with `python main.py`
 
 ## How It Works
 
@@ -84,6 +88,8 @@ AUDIO_THRESHOLD_DB=-60
 
 ## Support
 
+- **Start here**: Run `python detect_audio_devices.py`
+- **Audio setup**: See AUDIO_SETUP_GUIDE.md (works on any PC)
 - **Quick start**: See README.md
 - **Setup help**: See SETUP.md
 - **Technical details**: See IMPLEMENTATION.md
