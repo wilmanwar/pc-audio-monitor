@@ -25,15 +25,11 @@ def analyze_device(device_id, device_info, test_recording=False):
     
     # Score based on device name
     if any(x in device_name for x in ['stereo mix', 'wasapi', 'loopback', 'what u hear']):
-        recommendation.append(("[***]", "Stereo Mix - Best system audio capture!"))
-    elif any(x in device_name for x in ['voicemeeter point']):
-        recommendation.append(("[***]", "Voicemeeter Point - Excellent system audio capture!"))
-    elif any(x in device_name for x in ['voicemeeter out']):
-        recommendation.append(("[**]", "VoiceMeeter VAIO - Good (install Voicemeeter first)"))
+        recommendation.append(("[***]", "Stereo Mix - Best system audio capture! (native Windows)"))
     elif any(x in device_name for x in ['cable output', 'cable input']):
-        recommendation.append(("[**]", "VB-Audio Cable - Good (install VB-Audio Cable)"))
+        recommendation.append(("[***]", "VB-Audio Cable - Excellent system audio capture! (with loopback listening)"))
     elif any(x in device_name for x in ['microphone']):
-        recommendation.append(("[*]", "Microphone - Fallback only (won't capture system audio)"))
+        recommendation.append(("[*]", "Microphone - Fallback only (limited quality)"))
     
     # Try to record and test
     works = None
@@ -103,44 +99,38 @@ def main():
     # Check what's available
     stereo_mix = any('stereo mix' in c['name'].lower() or 'wasapi' in c['name'].lower() 
                      for c in candidates)
-    voicemeeter_point = any('voicemeeter point' in c['name'].lower() for c in candidates)
-    voicemeeter_vaio = any('voicemeeter out' in c['name'].lower() for c in candidates)
+    cable = any('cable' in c['name'].lower() for c in candidates)
     
     print("\n[OK] AVAILABLE OPTIONS ON YOUR SYSTEM:\n")
     
     if stereo_mix:
         print("  1. [***] STEREO MIX")
         print("     [OK] Available on your PC")
-        print("     [OK] Best option - captures all system audio")
-        print("     [OK] Already enabled")
-        print("     --> Use this! No additional software needed.\n")
+        print("     [OK] Best option - native Windows loopback")
+        print("     [OK] No additional software needed")
+        print("     --> Use this! Just enable if not already.\n")
     else:
         print("  1. [***] STEREO MIX")
         print("     [NO] NOT available on your PC")
-        print("     [NO] Either disabled, or your audio driver doesn't support it")
-        print("     --> Try enabling in Sound Settings or update your audio driver\n")
+        print("     [NO] Either disabled or your audio driver doesn't support it")
+        print("     --> Update audio driver or use VB-Audio Cable instead\n")
     
-    if voicemeeter_point:
-        print("  2. [***] VOICEMEETER POINT DEVICES")
-        print("     [OK] Available on your PC (VoiceMeeter is installed)")
-        print("     [OK] Excellent system audio capture")
+    if cable:
+        print("  2. [***] VB-AUDIO CABLE")
+        print("     [OK] Available on your PC (VB-Audio Cable is installed)")
+        print("     [OK] Excellent system audio capture with loopback listening")
         if not stereo_mix:
             print("     --> Recommended! This is the best option if Stereo Mix is unavailable.\n")
         else:
             print()
-    elif voicemeeter_vaio:
-        print("  2. [***] VOICEMEETER (VAIO VERSION)")
-        print("     [OK] Voicemeeter VAIO is installed")
-        print("     [!] This app works better with Voicemeeter Point")
-        print("     --> Consider upgrading to the latest Voicemeeter version.\n")
     else:
-        print("  2. [***] VOICEMEETER (NOT INSTALLED)")
-        print("     [NO] Not on your PC yet")
-        print("     --> Consider installing from https://vb-audio.com/Voicemeeter/\n")
+        print("  2. [***] VB-AUDIO CABLE")
+        print("     [NO] Not installed on your PC yet")
+        print("     --> Download from https://vb-audio.com/Cable/\n")
     
     print("  3. [*] MICROPHONE (FALLBACK)")
     print("     [OK] Always available on any PC")
-    print("     [NO] Won't capture system audio clearly")
+    print("     [NO] Limited quality (won't capture system audio clearly)")
     print("     --> Use only if other options aren't available.\n")
     
     # Quick start guide
@@ -156,18 +146,20 @@ def main():
         print("  2. Just run: python main.py")
         print("  3. The app will automatically detect Stereo Mix")
         print()
-    elif voicemeeter_point:
+    elif cable:
         print("[OK] YOUR SYSTEM IS READY!")
         print()
-        print("  1. VoiceMeeter Point devices detected")
-        print("  2. Just run: python main.py")
-        print("  3. The app will automatically use Voicemeeter Point")
+        print("  1. VB-Audio Cable is installed")
+        print("  2. Open VBCABLE_ControlPanel.exe to configure")
+        print("  3. Set output to CABLE in Windows Sound Settings")
+        print("  4. Enable loopback listening in Sound Settings")
+        print("  5. Run: python main.py")
         print()
     else:
         print("[!] YOUR SYSTEM NEEDS SETUP")
         print()
-        print("  Best option: Install VoiceMeeter")
-        print("  1. Download from: https://vb-audio.com/Voicemeeter/")
+        print("  Best option: Install VB-Audio Cable")
+        print("  1. Download from: https://vb-audio.com/Cable/")
         print("  2. Install and restart Windows")
         print("  3. Run: python main.py")
         print()
@@ -182,9 +174,9 @@ def main():
     print("NEED HELP?")
     print("=" * 80)
     print()
-    print("  - Read: AUDIO_SETUP_GUIDE.md")
-    print("  - More help: SETUP.md")
-    print("  - Audio alternatives: STEREO_MIX_ALTERNATIVES.md")
+    print("  - Read: AUDIO_SETUP_GUIDE.md (complete setup guide)")
+    print("  - VB-Audio Cable setup: VBCABLE_SETUP.md")
+    print("  - Troubleshooting: SETUP.md")
     print()
 
 if __name__ == "__main__":
