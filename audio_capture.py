@@ -151,12 +151,11 @@ class AudioCapture:
         return best_idx
     def _find_loopback_device(self) -> Optional[int]:
         """
-        Find the WASAPI loopback device (Stereo Mix) or alternative virtual audio device.
-        Falls back to default input device if Stereo Mix not found.
+        Find a loopback audio device for system audio capture.
         
         Search priority:
-        1. Stereo Mix / WASAPI loopback
-        2. Virtual audio devices (VB-Audio Cable, VoiceMeeter, etc)
+        1. Stereo Mix / WASAPI loopback (native Windows)
+        2. VB-Audio Cable (virtual audio cable with loopback)
         3. Default input device (microphone fallback)
         
         Returns:
@@ -176,18 +175,14 @@ class AudioCapture:
             
             # Priority list for device names (in order of preference)
             priority_keywords = [
-                # Stereo Mix / WASAPI loopback (highest priority)
+                # Stereo Mix / WASAPI loopback (highest priority - native Windows)
                 ('stereo mix', 1),
                 ('wave out mix', 1),
                 ('what u hear', 1),
                 ('loopback', 1),
                 ('wasapi', 1),
-                # Voicemeeter Point - these work!
-                ('voicemeeter point', 1.5),
-                # VB-Audio Cable (simple option without VoiceMeeter)
+                # VB-Audio Cable (simple virtual audio cable with loopback)
                 ('cable', 2),
-                # VB-Audio Voicemeeter outputs (fallback)
-                ('voicemeeter out', 3),
             ]
             
             best_device = None
@@ -209,7 +204,7 @@ class AudioCapture:
             
             if best_device is not None:
                 device_name = devices[best_device]['name']
-                device_type = "Stereo Mix" if best_priority == 1 else "Virtual Audio Device"
+                device_type = "Stereo Mix" if best_priority == 1 else "VB-Audio Cable"
                 logger.info(f"Found {device_type}: {device_name} (ID: {best_device})")
                 return best_device
             
@@ -220,14 +215,14 @@ class AudioCapture:
                 default_input = sd.default.device
             
             if default_input is not None and isinstance(default_input, int) and default_input >= 0:
-                logger.warning("Stereo Mix / Virtual audio device not found.")
+                logger.warning("Stereo Mix / VB-Audio Cable device not found.")
                 logger.warning("Using default input device as fallback (usually microphone).")
                 logger.warning("")
                 logger.warning("For better system audio detection, consider:")
-                logger.warning("  • Enable Stereo Mix in audio driver settings")
-                logger.warning("  • Install VB-Audio Virtual Cable (https://vb-audio.com/Cable/)")
+                logger.warning("  • Enable Stereo Mix in your audio driver settings (if available)")
+                logger.warning("  • Install VB-Audio Cable: https://vb-audio.com/Cable/")
                 logger.warning("  • Update your audio driver")
-                logger.warning("  • See STEREO_MIX_ALTERNATIVES.md for other options")
+                logger.warning("  • See AUDIO_SETUP_GUIDE.md for complete instructions")
                 logger.warning("")
                 default_info = devices[default_input]
                 logger.info(f"Using fallback device: {default_info['name']} (ID: {default_input})")

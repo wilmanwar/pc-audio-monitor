@@ -37,24 +37,32 @@ pip install -r requirements.txt
 
 ### 3. Enable Audio Detection
 
-**See [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md) for your specific PC setup** - The guide covers:
-- ✅ **Stereo Mix** (if your PC supports it - easiest)
-- ✅ **VoiceMeeter Point** (recommended for most users - works on any PC)
-- ✅ **Microphone fallback** (works everywhere, limited quality)
+**The app automatically detects the best audio device on your PC.**
 
-### Quick Audio Setup
+See [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md) for your specific setup:
 
-1. **Try Stereo Mix first** (easiest if available)
-   - Right-click speaker → Sound settings → Advanced → Volume mixer
-   - Look for "Stereo Mix" and enable it
-   
-2. **If not available, install VoiceMeeter** (recommended)
-   - Download from https://vb-audio.com/Voicemeeter/
+- ✅ **Stereo Mix** (easiest if available - native Windows)
+- ✅ **VB-Audio Cable** (recommended - works on any PC with loopback)
+- ✅ **Microphone** (fallback - always available)
+
+**Quick options:**
+
+1. **Stereo Mix (if available)**
+   - Settings → Sound → Advanced → Volume mixer
+   - Enable "Stereo Mix"
+   - Done!
+
+2. **VB-Audio Cable (recommended)**
+   - Download: https://vb-audio.com/Cable/
    - Install and restart
-   - The app will auto-detect Voicemeeter Point devices
-   
-3. **Fallback: Use Microphone** (always works)
-   - App automatically uses your default mic if nothing else is available
+   - Open VBCABLE_ControlPanel.exe
+   - Set output to CABLE in Windows Sound Settings
+   - Enable "Listen to this device" with loopback to speakers
+   - Done!
+
+3. **Microphone (fallback)**
+   - App automatically uses it if nothing else is configured
+   - Works but limited quality
 
 **→ Full setup instructions and troubleshooting in [AUDIO_SETUP_GUIDE.md](AUDIO_SETUP_GUIDE.md)**
 
