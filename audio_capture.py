@@ -24,7 +24,11 @@ class AudioCapture:
         self.threshold_db = threshold_db
         self.duration = duration
         self.samplerate = samplerate
+        self.device_id = None
         self.device_id = self._find_loopback_device()
+        # Query the device's native sample rate if available
+        if self.device_id is not None:
+            self._query_device_samplerate()
         
     def _find_loopback_device(self) -> Optional[int]:
         """
@@ -53,17 +57,16 @@ class AudioCapture:
             
             # Priority list for device names (in order of preference)
             priority_keywords = [
-                # Stereo Mix variants
+                # Stereo Mix / WASAPI loopback (highest priority)
                 ('stereo mix', 1),
                 ('wave out mix', 1),
                 ('what u hear', 1),
                 ('loopback', 1),
                 ('wasapi', 1),
-                # Virtual audio cables
-                ('vb-audio', 2),
-                ('virtual cable', 2),
-                ('voicemeeter', 2),
-                ('virtual audio', 2),
+                # Voicemeeter Point - these work!
+                ('voicemeeter point', 1.5),
+                # VB-Audio Voicemeeter outputs (fallback)
+                ('voicemeeter out', 3),
             ]
             
             best_device = None
@@ -116,6 +119,16 @@ class AudioCapture:
             logger.error(f"Error finding loopback device: {e}")
             return None
     
+    def _query_device_samplerate(self) -> None:
+        """Query device's default sample rate."""
+        try:
+            device_info = sd.query_devices(self.device_id)
+            default_sr = device_info.get('default_samplerate', 44100)
+            self.samplerate = int(default_sr)
+            logger.info(f"Device {self.device_id} using sample rate: {self.samplerate} Hz")
+        except Exception as e:
+            logger.warning(f"Could not query device sample rate, using default 44100: {e}")
+    
     def capture_audio(self) -> np.ndarray:
         """
         Capture audio from loopback device.
@@ -131,16 +144,26 @@ class AudioCapture:
         
         try:
             logger.debug(f"Recording {self.duration}s from device {self.device_id}...")
-            audio_data = sd.rec(
-                int(self.samplerate * self.duration),
-                samplerate=self.samplerate,
-                channels=2,
-                device=self.device_id,
-                dtype='float32'
-            )
-            sd.wait()
-            logger.debug(f"Recording complete. Shape: {audio_data.shape}, dtype: {audio_data.dtype}")
-            return audio_data
+            # Try multiple channel configurations for compatibility with multi-channel devices
+            for channels in [1, 2, 4, 8]:
+                try:
+                    logger.debug(f"Attempting {channels}-channel recording...")
+                    audio_data = sd.rec(
+                        int(self.samplerate * self.duration),
+                        samplerate=self.samplerate,
+                        channels=channels,
+                        device=self.device_id,
+                        dtype='float32'
+                    )
+                    sd.wait()
+                    logger.debug(f"Recording complete with {channels} channels. Shape: {audio_data.shape}, dtype: {audio_data.dtype}")
+                    return audio_data
+                except Exception as e:
+                    logger.debug(f"{channels}-channel recording failed: {e}")
+                    continue
+            
+            # If all channels failed, raise error
+            raise RuntimeError(f"Could not capture audio from device {self.device_id} with any channel configuration")
         except Exception as e:
             logger.error(f"Error capturing audio: {e}")
             raise
@@ -170,6 +193,140 @@ class AudioCapture:
         
         logger.debug(f"RMS level: {rms_db:.2f} dB (threshold: {self.threshold_db} dB)")
         return rms_db
+    
+    def is_music(self, audio_data: np.ndarray) -> bool:
+        """
+        Detect if audio contains music (vs speech, conversations, etc).
+        
+        Uses multiple frequency and temporal features:
+        - Music: Steady harmonic content, consistent spectral shape, low variation
+        - Speech: Variable energy bursts, high temporal variation, broad spectrum
+        
+        Args:
+            audio_data: Audio samples (numpy array)
+            
+        Returns:
+            True if audio appears to be music, False otherwise
+        """
+        try:
+            # Convert to mono if stereo
+            if audio_data.ndim > 1:
+                audio_data = np.mean(audio_data, axis=1)
+            
+            # Split into chunks to analyze temporal variation
+            chunk_size = int(self.samplerate * 0.5)  # 500ms chunks
+            num_chunks = max(2, len(audio_data) // chunk_size)
+            chunks = [audio_data[i*chunk_size:(i+1)*chunk_size] for i in range(num_chunks)]
+            
+            if not chunks or len(chunks[0]) < 100:
+                return False
+            
+            # Analyze each chunk
+            chunk_spectral_features = []
+            chunk_energies = []
+            
+            for chunk in chunks:
+                if len(chunk) < 100:
+                    continue
+                
+                window = np.hanning(len(chunk))
+                chunk_windowed = chunk * window
+                
+                fft = np.fft.rfft(chunk_windowed)
+                freqs = np.fft.rfftfreq(len(chunk_windowed), 1.0 / self.samplerate)
+                magnitude = np.abs(fft)
+                
+                # Music range: 100Hz - 10kHz
+                music_min_freq = 100
+                music_max_freq = 10000
+                
+                mask = (freqs >= music_min_freq) & (freqs <= music_max_freq)
+                music_magnitude = magnitude[mask]
+                music_freqs = freqs[mask]
+                
+                if len(music_magnitude) == 0:
+                    continue
+                
+                total_energy = np.sum(music_magnitude)
+                if total_energy == 0:
+                    continue
+                
+                chunk_energies.append(total_energy)
+                
+                # Spectral entropy: Low for music (organized), high for speech (random)
+                # Normalized so 0 = all energy in one frequency, 1 = uniform
+                normalized_mag = music_magnitude / total_energy
+                spectral_entropy = -np.sum(normalized_mag[normalized_mag > 0] * np.log2(normalized_mag[normalized_mag > 0] + 1e-10))
+                max_entropy = np.log2(len(music_magnitude))
+                normalized_entropy = spectral_entropy / max_entropy if max_entropy > 0 else 1.0
+                
+                # Spectral centroid (where most energy is)
+                spectral_centroid = np.sum(music_freqs * music_magnitude) / total_energy
+                
+                # Peak detection
+                peak_threshold = np.mean(music_magnitude) * 0.3
+                peaks = music_magnitude > peak_threshold
+                num_peaks = np.sum(peaks)
+                peak_ratio = num_peaks / len(music_magnitude)
+                
+                chunk_spectral_features.append({
+                    'entropy': normalized_entropy,
+                    'centroid': spectral_centroid,
+                    'peak_ratio': peak_ratio,
+                    'total_energy': total_energy
+                })
+            
+            if not chunk_spectral_features:
+                return False
+            
+            # Extract features across chunks
+            entropies = [f['entropy'] for f in chunk_spectral_features]
+            centroids = [f['centroid'] for f in chunk_spectral_features]
+            peak_ratios = [f['peak_ratio'] for f in chunk_spectral_features]
+            
+            # Music characteristics:
+            # 1. Lower entropy (more organized, less random)
+            # 2. Consistent spectral centroid (same instruments playing)
+            # 3. Decent peak ratio (harmonic structure)
+            # 4. Stable energy (not bursty like speech)
+            
+            avg_entropy = np.mean(entropies)
+            entropy_variation = np.std(entropies)
+            
+            avg_centroid = np.mean(centroids)
+            centroid_variation = np.std(centroids)
+            
+            avg_peak_ratio = np.mean(peak_ratios)
+            
+            energy_variation = np.std(chunk_energies) / (np.mean(chunk_energies) + 1e-10)
+            
+            # Decision logic:
+            # Music: Very low entropy (highly organized, harmonic structure)
+            # Speech/Conversation: HIGH entropy (0.75+), variable phonemes
+            # Entropy is the primary discriminator - don't use just score
+            
+            is_low_entropy = avg_entropy < 0.65  # Music is very organized (entropy < 0.65)
+            is_consistent = centroid_variation < 500  # Music has consistent frequency content
+            is_peaky = avg_peak_ratio > 0.12  # Music has harmonic peaks
+            is_stable = energy_variation < 0.8  # Music has stable energy, speech is bursty
+            
+            # CRITICAL: Low entropy + at least 2 other features = music
+            # Speech has high entropy, so requiring low entropy first filters it out
+            is_music_like = is_low_entropy and (sum([is_consistent, is_peaky, is_stable]) >= 2)
+            
+            logger.debug(
+                f"Music detection: entropy={avg_entropy:.3f} (low={is_low_entropy}), "
+                f"consistency={centroid_variation:.0f}Hz (consistent={is_consistent}), "
+                f"peaks={avg_peak_ratio:.3f} (peaky={is_peaky}), "
+                f"stability={energy_variation:.3f} (stable={is_stable}) "
+                f"→ {is_music_like}"
+            )
+            
+            return is_music_like
+            
+        except Exception as e:
+            logger.error(f"Error in music detection: {e}")
+            return True  # Default to music on error (don't filter out)
     
     def has_audio(self) -> Tuple[bool, float]:
         """

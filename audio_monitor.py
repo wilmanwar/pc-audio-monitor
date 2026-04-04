@@ -17,7 +17,7 @@ class AudioState(Enum):
 
 
 class AudioMonitor:
-    """Tracks audio state and triggers alerts on sound-to-silence transitions."""
+    """Tracks audio state and triggers alerts on music-to-silence transitions."""
     
     def __init__(
         self,
