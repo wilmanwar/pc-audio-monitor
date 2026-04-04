@@ -17,7 +17,7 @@ import time
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-def test_device(device_id, duration=1.0, sample_rate=44100):
+def test_device(device_id, duration=2.0, sample_rate=44100):
     """Test a single device to see if it has audio."""
     device_info = sd.query_devices(device_id)
     
@@ -25,16 +25,20 @@ def test_device(device_id, duration=1.0, sample_rate=44100):
         return None
     
     try:
-        # Record a short sample
+        # Record audio - use the device's native channels if available
+        channels = min(2, device_info['max_input_channels'])
+        
+        # Record a sample
         audio_data = sd.rec(
             int(sample_rate * duration),
             samplerate=sample_rate,
-            channels=2,
+            channels=channels,
             device=device_id,
             dtype='float32',
             blocksize=2048
         )
-        sd.wait(timeout=duration + 2.0)
+        # Wait for recording to complete
+        sd.wait()
         
         # Calculate RMS level
         if audio_data.ndim > 1:
@@ -45,6 +49,7 @@ def test_device(device_id, duration=1.0, sample_rate=44100):
         
         return rms_db
     except Exception as e:
+        import traceback
         return None
 
 
@@ -71,7 +76,7 @@ def main():
     print(f"Found {len(input_devices)} audio input devices.")
     print()
     print("START PLAYING YOUR MUSIC/AUDIO NOW")
-    print("Testing each device for 1 second...")
+    print("Testing each device for 2 seconds...")
     print()
     print("-" * 80)
     
@@ -82,10 +87,10 @@ def main():
         short_name = device_name[:60] if len(device_name) > 60 else device_name
         
         print(f"[{idx:3d}] {short_name:60s}", end="", flush=True)
-        level = test_device(idx, duration=1.0)
+        level = test_device(idx, duration=2.0)
         
         if level is not None:
-            status = " [OK]  " if level > -60 else " [Quiet]"
+            status = " [OK]  " if level > -50 else " [Quiet]"
             print(f" {status} {level:7.1f} dB")
             results.append((idx, device_name, level))
         else:
@@ -101,8 +106,9 @@ def main():
         print("Possible reasons:")
         print("  1. Your music/audio wasn't playing during the test")
         print("  2. Your audio routing isn't set up correctly")
-        print("     - Check VoiceMeeter output settings")
-        print("     - Make sure audio is routed to the right device")
+        print("     - For Stereo Mix: Check Windows Sound settings (advanced tab)")
+        print("     - For VB-Audio Cable: Run VBCABLE_ControlPanel.exe and enable loopback")
+        print("     - For Microphone: Speak into your microphone during the test")
         print()
         return 1
     
@@ -117,13 +123,16 @@ def main():
             print(f"    Audio level: {level:.1f} dB")
             print()
     
-    if results[0][2] > -60:
+    if results[0][2] > -50:
         device_id = results[0][0]
         print("RECOMMENDATION:")
         print(f"  Use AUDIO_DEVICE_ID={device_id} in your .env file")
         print()
-        print("Or just use the default AUTO_DETECT_AUDIO=true setting")
-        print("and the app will automatically use the device with audio next time.")
+        print("Or just use the default AUTO_DETECT_AUDIO=false setting")
+        print("and the app will automatically use the best available device.")
+    else:
+        print("WARNING: Audio levels detected but all below -50 dB (very quiet)")
+        print("Check your audio routing and playback volume")
     
     return 0
 
