@@ -28,3 +28,4 @@ venv.bak/
 .DS_Store
 *.log
 *.pid
+discogs-*.*
