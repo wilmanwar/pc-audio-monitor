@@ -140,6 +140,9 @@ def main():
                     music_confidence=music_conf,
                     rms_db=rms_db,
                     interruption_seconds=interruption_secs,
+                    alert_after_seconds=alert_after,
+                    raw_genre=genre,
+                    raw_genre_confidence=genre_conf,
                 )
 
                 # 5. Log summary

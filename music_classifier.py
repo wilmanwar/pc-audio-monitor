@@ -283,113 +283,106 @@ class MusicClassifier:
 
             # ------------------------------------------------------------------
             # CLASSICAL
-            # Strong positive: clear pitch periodicity (melody/harmony),
-            # energy spread across mid + treble, relatively little bass/percussion.
-            # Requires pitch_p > 0.15 to score at all — prevents winning on noise.
+            # Real classical: entropy 0.62-0.78 (organized harmonics, not dense
+            # modern production), clear pitch, low-moderate bass, some treble.
+            # High entropy (>0.85) rules it out — that's dense layered production.
+            # High flatness (>0.20) rules it out — classical instruments are tonal.
             # ------------------------------------------------------------------
-            if pitch_p > 0.15:
+            if pitch_p > 0.15 and entropy < 0.82 and flatness < 0.20:
                 scores['Classical'] = (
-                    0.40 * min(pitch_p / 0.4, 1.0) +        # strong pitch = melody
-                    0.25 * min(mid / 0.5, 1.0) +             # mid energy (strings, piano)
-                    0.20 * min(treble / 0.15, 1.0) +         # treble (violins, flutes)
-                    0.15 * max(0, 1 - bass / 0.2)            # low bass
+                    0.30 * min(pitch_p / 0.5, 1.0) +
+                    0.30 * max(0, 1 - abs(entropy - 0.70) / 0.12) +  # peaks at entropy=0.70
+                    0.25 * min(mid / 0.5, 1.0) +
+                    0.15 * max(0, 1 - bass / 0.18)                    # genuinely low bass
                 )
             else:
                 scores['Classical'] = 0.0
 
             # ------------------------------------------------------------------
             # POP
-            # Balanced spectrum with clear vocal presence in mid, moderate bass,
-            # some percussion. Needs all three bands to be present — pop is
-            # defined by its full, produced sound.
+            # Balanced spectrum, moderate bass (0.12-0.25), mid vocals, some
+            # percussion. High entropy is fine — modern pop is dense.
             # ------------------------------------------------------------------
-            has_bass_pop = bass > 0.10
-            has_mid_pop  = mid > 0.35
-            has_perc_pop = percussion > 0.05
-            if has_bass_pop and has_mid_pop:
+            if bass > 0.10 and mid > 0.35:
                 scores['Pop'] = (
                     0.30 * min(mid / 0.5, 1.0) +
-                    0.25 * min(bass / 0.25, 1.0) +
-                    0.25 * min(percussion / 0.15, 1.0) +
-                    0.20 * max(0, 1 - abs(entropy - 0.70) / 0.15)  # entropy ~0.70
+                    0.25 * max(0, 1 - abs(bass - 0.18) / 0.10) +     # bass ~0.15-0.25
+                    0.25 * min(percussion / 0.12, 1.0) +
+                    0.20 * max(0, 1 - abs(entropy - 0.88) / 0.06)    # entropy ~0.88 typical pop
                 )
             else:
                 scores['Pop'] = 0.0
 
             # ------------------------------------------------------------------
             # ROCK
-            # High bass AND high percussion together — the rhythm section is
-            # what defines rock. Without both, don't score it.
+            # Higher bass AND percussion than pop, strong treble (guitars),
+            # high entropy from dense mix.
             # ------------------------------------------------------------------
             if bass > 0.15 and percussion > 0.10:
                 scores['Rock'] = (
-                    0.40 * min(bass / 0.30, 1.0) +
-                    0.35 * min(percussion / 0.20, 1.0) +
-                    0.15 * min(treble / 0.20, 1.0) +         # electric guitar bite
-                    0.10 * max(0, 1 - entropy / 0.8)         # less chaotic than Jazz
+                    0.35 * min(bass / 0.25, 1.0) +
+                    0.35 * min(percussion / 0.18, 1.0) +
+                    0.20 * min(treble / 0.25, 1.0) +
+                    0.10 * max(0, 1 - abs(entropy - 0.90) / 0.05)
                 )
             else:
                 scores['Rock'] = 0.0
 
             # ------------------------------------------------------------------
             # ELECTRONIC
-            # Synthetic = low pitch periodicity (not acoustic instruments),
-            # high treble (synthesizers, hi-hats), strong percussion, low flatness
-            # (tonal synth waves are peaky). Requires treble > 0.20 to score.
+            # High treble (synths), high percussion, LOW pitch_p (synthetic
+            # rather than acoustic), high entropy from layered production.
             # ------------------------------------------------------------------
             if treble > 0.20 and percussion > 0.08:
                 scores['Electronic'] = (
-                    0.35 * min(treble / 0.30, 1.0) +
-                    0.30 * min(percussion / 0.20, 1.0) +
-                    0.20 * max(0, 1 - pitch_p / 0.3) +       # synthetic = low pitch_p
-                    0.15 * max(0, 1 - flatness / 0.12)       # tonal synth = peaky spectrum
+                    0.30 * min(treble / 0.28, 1.0) +
+                    0.30 * min(percussion / 0.18, 1.0) +
+                    0.25 * max(0, 1 - pitch_p / 0.4) +               # synthetic = low pitch_p
+                    0.15 * max(0, 1 - flatness / 0.15)
                 )
             else:
                 scores['Electronic'] = 0.0
 
             # ------------------------------------------------------------------
             # ACOUSTIC
-            # Natural instruments: clear pitch, very little percussion and bass,
-            # moderate mid. Acoustic guitar, piano solo, folk, singer-songwriter.
+            # Clear pitch, very little percussion and bass, low entropy
+            # (simple arrangement — guitar, piano, singer-songwriter).
             # ------------------------------------------------------------------
-            if pitch_p > 0.12 and percussion < 0.12 and bass < 0.20:
+            if pitch_p > 0.12 and percussion < 0.10 and bass < 0.18 and entropy < 0.85:
                 scores['Acoustic'] = (
-                    0.35 * min(pitch_p / 0.35, 1.0) +
-                    0.30 * max(0, 1 - percussion / 0.12) +   # minimal percussion
+                    0.35 * min(pitch_p / 0.40, 1.0) +
+                    0.30 * max(0, 1 - percussion / 0.10) +
                     0.20 * min(mid / 0.45, 1.0) +
-                    0.15 * max(0, 1 - bass / 0.20)           # minimal bass
+                    0.15 * max(0, 1 - bass / 0.18)
                 )
             else:
                 scores['Acoustic'] = 0.0
 
             # ------------------------------------------------------------------
             # AMBIENT
-            # Defined by what it lacks: very stable energy (no beats), low
-            # percussion, low brightness, smooth spectrum. Requires stability < 0.4.
+            # Very stable energy, no real beats, dark/warm tone, low entropy.
             # ------------------------------------------------------------------
             if stability < 0.40 and percussion < 0.08:
                 scores['Ambient'] = (
-                    0.40 * max(0, 1 - stability / 0.40) +    # very stable energy
-                    0.25 * max(0, 1 - percussion / 0.08) +   # no drums
-                    0.20 * max(0, 1 - treble / 0.15) +       # dark/warm sound
-                    0.15 * max(0, 1 - entropy / 0.65)        # low entropy (smooth)
+                    0.40 * max(0, 1 - stability / 0.40) +
+                    0.25 * max(0, 1 - percussion / 0.08) +
+                    0.20 * max(0, 1 - treble / 0.15) +
+                    0.15 * max(0, 1 - entropy / 0.65)
                 )
             else:
                 scores['Ambient'] = 0.0
 
             # ------------------------------------------------------------------
             # JAZZ
-            # Complex harmonic structure (higher entropy), clear pitch content
-            # (instruments, melody), moderate bass. Specifically requires entropy
-            # in a jazz-typical range AND pitch_p above threshold — prevents
-            # winning on random noise or speech-like audio.
+            # Moderate entropy (0.72-0.85), clear melodic pitch, light
+            # percussion, moderate bass. Entropy > 0.88 = too dense for jazz.
             # ------------------------------------------------------------------
-            if 0.62 < entropy < 0.82 and pitch_p > 0.12:
+            if 0.68 < entropy < 0.88 and pitch_p > 0.15 and bass > 0.05:
                 scores['Jazz'] = (
-                    0.35 * max(0, 1 - abs(entropy - 0.72) / 0.10) +  # entropy ~0.72
-                    0.30 * min(pitch_p / 0.30, 1.0) +                  # melodic instruments
-                    0.20 * max(0, 1 - abs(bass - 0.15) / 0.10) +      # moderate bass ~0.15
-                    0.15 * max(0, 1 - percussion / 0.15)               # light percussion
+                    0.35 * max(0, 1 - abs(entropy - 0.78) / 0.10) +  # peaks at 0.78
+                    0.30 * min(pitch_p / 0.40, 1.0) +
+                    0.20 * max(0, 1 - abs(bass - 0.12) / 0.08) +     # moderate-low bass
+                    0.15 * max(0, 1 - percussion / 0.12)              # light drums
                 )
             else:
                 scores['Jazz'] = 0.0

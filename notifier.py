@@ -63,6 +63,9 @@ class HomeAssistantNotifier:
         music_confidence: float,
         rms_db: float,
         interruption_seconds: Optional[float] = None,
+        alert_after_seconds: int = 180,
+        raw_genre: str = "Unknown",
+        raw_genre_confidence: float = 0.0,
     ) -> bool:
         """
         Send current poll status to HA. Called every monitoring cycle.
@@ -74,15 +77,30 @@ class HomeAssistantNotifier:
             music_confidence:      Raw music classifier confidence 0-1
             rms_db:                Current RMS level in dB
             interruption_seconds:  Seconds since music stopped (None if music playing)
+            alert_after_seconds:   Threshold before alert fires (for progress display)
+            raw_genre:             Per-check genre before smoothing
+            raw_genre_confidence:  Per-check genre confidence before smoothing
         """
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Alert progress: 0.0 = just stopped, 1.0 = alert about to fire
+        if interruption_seconds is not None and alert_after_seconds > 0:
+            alert_progress = min(round(interruption_seconds / alert_after_seconds, 2), 1.0)
+            alert_remaining = max(int(alert_after_seconds - interruption_seconds), 0)
+        else:
+            alert_progress = 0.0
+            alert_remaining = alert_after_seconds
 
         attributes = {
             "state": state,
             "genre": genre,
             "genre_confidence": round(float(genre_confidence), 2),
+            "raw_genre": raw_genre,
+            "raw_genre_confidence": round(float(raw_genre_confidence), 2),
             "music_confidence": round(float(music_confidence), 2),
             "rms_db": round(float(rms_db), 1),
+            "alert_progress": float(alert_progress),
+            "alert_remaining_seconds": int(alert_remaining),
             "last_updated": now_utc,
             "friendly_name": "PC Audio Monitor",
             "icon": "mdi:music-note" if state == "music" else "mdi:music-note-off",
@@ -146,22 +164,51 @@ class HomeAssistantNotifier:
         return success
 
     def send_alert(self, reason: str, genre: str, confidence: float) -> bool:
-        """Fire a dedicated alert event in HA (called by MultiNotifier on alert)."""
-        url = f"{self.base_url}/api/events/pc_audio_monitor_alert"
-        payload = {
+        """
+        Fire a dedicated alert event in HA and update a persistent alert sensor.
+        The sensor keeps the last alert details visible on the dashboard at all times.
+        """
+        now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        message = f"Music interrupted: {reason} (was playing {genre})"
+
+        # 1. Fire event (for automations)
+        event_url = f"{self.base_url}/api/events/pc_audio_monitor_alert"
+        event_payload = {
             "reason": reason,
             "last_genre": genre,
-            "genre_confidence": round(confidence, 2),
-            "message": f"Music interrupted: {reason} (was playing {genre})",
+            "genre_confidence": round(float(confidence), 2),
+            "message": message,
+            "fired_at": now_utc,
         }
-        try:
-            resp = requests.post(url, json=payload, headers=self.headers, timeout=5)
-            resp.raise_for_status()
-            logger.info(f"HA alert event fired: {payload['message']}")
-            return True
-        except requests.RequestException as e:
-            logger.error(f"HA alert event failed: {e}")
-            return False
+
+        # 2. Persist alert to a sensor so it shows in history and on the dashboard
+        sensor_url = f"{self.base_url}/api/states/sensor.pc_audio_monitor_last_alert"
+        sensor_payload = {
+            "state": reason,   # "silence" or "speech/sound" — shows on timeline
+            "attributes": {
+                "friendly_name": "PC Audio Last Alert",
+                "icon": "mdi:bell-alert",
+                "last_genre": genre,
+                "genre_confidence": round(float(confidence), 2),
+                "message": message,
+                "fired_at": now_utc,
+            },
+        }
+
+        success = True
+        for url, payload, label in [
+            (event_url, event_payload, "alert event"),
+            (sensor_url, sensor_payload, "alert sensor"),
+        ]:
+            try:
+                resp = requests.post(url, json=payload, headers=self.headers, timeout=5)
+                resp.raise_for_status()
+                logger.info(f"HA {label} updated: {message}")
+            except requests.RequestException as e:
+                logger.error(f"HA {label} failed: {e}")
+                success = False
+
+        return success
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +340,9 @@ class MultiNotifier:
         music_confidence: float,
         rms_db: float,
         interruption_seconds: Optional[float] = None,
+        alert_after_seconds: int = 180,
+        raw_genre: str = "Unknown",
+        raw_genre_confidence: float = 0.0,
     ) -> None:
         """
         Send live status to HA on every poll. No window gating, no cooldown.
@@ -306,6 +356,9 @@ class MultiNotifier:
                 music_confidence=music_confidence,
                 rms_db=rms_db,
                 interruption_seconds=interruption_seconds,
+                alert_after_seconds=alert_after_seconds,
+                raw_genre=raw_genre,
+                raw_genre_confidence=raw_genre_confidence,
             )
 
     def send_alert(self, reason: str, genre: str, confidence: float) -> None:
