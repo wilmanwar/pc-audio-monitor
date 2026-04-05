@@ -12,9 +12,20 @@ logger = logging.getLogger(__name__)
 class AudioCapture:
     """Captures and analyzes system audio using WASAPI loopback."""
 
-    def __init__(self, threshold_db: float = -40, duration: float = 2.0,
-                 samplerate: int = 44100, auto_detect: bool = False):
+    def __init__(self, threshold_db: float = -50, duration: float = 2.0,
+                 samplerate: int = 44100, auto_detect: bool = False,
+                 silence_threshold_db: float = -75):
+        """
+        Args:
+            threshold_db:          Low-volume warning level in dB. Audio below
+                                   this is still classified (may be quiet music).
+                                   Used for logging only (default -50).
+            silence_threshold_db:  True silence threshold. Below this the signal
+                                   is device noise floor — skip classifier entirely
+                                   (default -75).
+        """
         self.threshold_db = threshold_db
+        self.silence_threshold_db = silence_threshold_db
         self.duration = duration
         self.samplerate = samplerate
         self.device_id = None
@@ -244,20 +255,62 @@ class AudioCapture:
         else:
             rms_db = -np.inf
 
-        logger.debug(f"RMS level: {rms_db:.2f} dB (threshold: {self.threshold_db} dB)")
-        return rms_db
+        logger.debug(f"RMS level: {rms_db:.2f} dB (silence threshold: {self.silence_threshold_db} dB)")
+        return float(rms_db)
 
-    def has_audio(self) -> Tuple[bool, float]:
+    def capture_and_analyze(self) -> Tuple[bool, bool, float, np.ndarray]:
         """
-        Check if audio is currently being detected above threshold.
+        Capture one audio chunk and return everything main.py needs.
+
+        Audio is captured ONCE and reused for both the RMS check and
+        the classifier — avoids capturing two separate chunks per cycle.
+
+        Two thresholds:
+          silence_threshold_db: True silence / device noise floor (default -75 dB).
+              Below this = no signal worth analyzing at all.
+          threshold_db:         Low-volume warning level (default -50 dB).
+              Audio below this is still classified — it may be quiet music.
+              The value is passed through so callers can log it, but it does
+              NOT block classification.
 
         Returns:
-            Tuple of (has_audio: bool, rms_db: float)
+            has_any_audio:  False only when RMS is below silence_threshold_db
+            is_low_volume:  True when RMS is between silence and threshold_db
+                            (quiet but not silent — useful for logging)
+            rms_db:         RMS level in dB
+            raw_audio:      Flat mono float32 array ready for the classifier
+                            (empty array if capture failed)
         """
         try:
             audio_data = self.capture_audio()
             rms_db = self.calculate_rms_db(audio_data)
-            has_audio = rms_db > self.threshold_db
+
+            has_any_audio = rms_db > self.silence_threshold_db
+            is_low_volume = has_any_audio and (rms_db <= self.threshold_db)
+
+            if has_any_audio:
+                if audio_data.ndim > 1:
+                    raw = np.mean(audio_data, axis=1).astype(np.float32)
+                else:
+                    raw = audio_data.astype(np.float32)
+            else:
+                raw = np.array([], dtype=np.float32)
+
+            return has_any_audio, is_low_volume, rms_db, raw
+
+        except Exception as e:
+            logger.error(f"Error in capture_and_analyze: {e}")
+            return False, False, -np.inf, np.array([], dtype=np.float32)
+
+    def has_audio(self) -> Tuple[bool, float]:
+        """
+        Legacy method kept for compatibility.
+        Prefer capture_and_analyze() for new code.
+        """
+        try:
+            audio_data = self.capture_audio()
+            rms_db = self.calculate_rms_db(audio_data)
+            has_audio = rms_db > self.silence_threshold_db
             return has_audio, rms_db
         except Exception as e:
             logger.error(f"Error in has_audio: {e}")

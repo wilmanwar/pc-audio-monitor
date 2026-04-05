@@ -53,7 +53,8 @@ def main():
         notifier = MultiNotifier()
 
         # --- Settings ---
-        threshold_db      = float(os.getenv('AUDIO_THRESHOLD_DB', '-40'))
+        threshold_db      = float(os.getenv('AUDIO_THRESHOLD_DB', '-50'))
+        silence_threshold = float(os.getenv('SILENCE_THRESHOLD_DB', '-75'))
         chunk_duration    = float(os.getenv('AUDIO_CHUNK_DURATION_SECONDS', '3.0'))
         monitor_interval  = float(os.getenv('MONITOR_INTERVAL_SECONDS', '5'))
         cooldown          = int(os.getenv('ALERT_COOLDOWN_SECONDS', '300'))
@@ -62,9 +63,9 @@ def main():
         genre_window      = int(os.getenv('GENRE_WINDOW', '12'))           # checks to average genre over
 
         logger.info(
-            f"Settings: threshold={threshold_db}dB  chunk={chunk_duration}s  "
-            f"interval={monitor_interval}s  cooldown={cooldown}s  "
-            f"alert_after={alert_after}s  genre_window={genre_window}"
+            f"Settings: silence_threshold={silence_threshold}dB  low_volume={threshold_db}dB  "
+            f"chunk={chunk_duration}s  interval={monitor_interval}s  "
+            f"cooldown={cooldown}s  alert_after={alert_after}s  genre_window={genre_window}"
         )
 
         # --- Alert schedule ---
@@ -72,8 +73,12 @@ def main():
         logger.info(f"Alert schedule: {alert_schedule.get_status()}")
 
         # --- Core components ---
-        audio_capture  = AudioCapture(threshold_db=threshold_db, duration=chunk_duration,
-                                       auto_detect=auto_detect)
+        audio_capture  = AudioCapture(
+            threshold_db=threshold_db,
+            silence_threshold_db=silence_threshold,
+            duration=chunk_duration,
+            auto_detect=auto_detect,
+        )
         classifier     = MusicClassifier(samplerate=int(os.getenv('AUDIO_SAMPLE_RATE', '44100')))
         audio_monitor  = AudioMonitor(
             on_music_interrupted=notifier.send_alert,
@@ -91,27 +96,21 @@ def main():
             try:
                 check_count += 1
 
-                # 1. Capture audio
-                has_audio, rms_db = audio_capture.has_audio()
+                # 1. Capture once — reuse for both RMS check and classification
+                has_audio, is_low_volume, rms_db, raw_audio = audio_capture.capture_and_analyze()
 
-                # 2. Classify if there's something to classify
-                if has_audio:
-                    # Re-capture a fresh chunk as numpy array for the classifier
-                    raw_audio = audio_capture.capture_raw()
-                    if raw_audio is not None and len(raw_audio) > 0:
-                        result = classifier.classify_audio(raw_audio)
-                    else:
-                        # Fallback: treat any audio as music if capture fails
-                        result = {
-                            'is_music': True,
-                            'music_confidence': 0.5,
-                            'genre': 'Unknown',
-                            'genre_confidence': 0.0,
-                        }
-                    is_music    = result['is_music']
-                    music_conf  = result['music_confidence']
-                    genre       = result['genre']
-                    genre_conf  = result['genre_confidence']
+                # 2. Classify
+                if has_audio and len(raw_audio) > 0:
+                    result = classifier.classify_audio(raw_audio)
+                    is_music   = result['is_music']
+                    music_conf = result['music_confidence']
+                    genre      = result['genre']
+                    genre_conf = result['genre_confidence']
+                    if is_low_volume:
+                        logger.debug(
+                            f"Low volume ({rms_db:.1f}dB) but classifying anyway: "
+                            f"{'music' if is_music else 'not music'} ({genre})"
+                        )
                 else:
                     is_music   = False
                     music_conf = 0.0
@@ -127,9 +126,24 @@ def main():
                     genre_confidence=genre_conf,
                 )
 
-                # 4. Log summary
-                state_label = audio_monitor.current_state.value.upper()
+                # 4. Send live status to HA on every poll (no window gating)
+                interruption_secs = None
+                if audio_monitor._interruption_since is not None:
+                    from datetime import datetime
+                    interruption_secs = (datetime.now() - audio_monitor._interruption_since).total_seconds()
+
                 stable_genre, stable_conf = audio_monitor._stable_genre()
+                notifier.update_status(
+                    state=audio_monitor.current_state.value,
+                    genre=stable_genre,
+                    genre_confidence=stable_conf,
+                    music_confidence=music_conf,
+                    rms_db=rms_db,
+                    interruption_seconds=interruption_secs,
+                )
+
+                # 5. Log summary
+                state_label = audio_monitor.current_state.value.upper()
                 schedule_status = audio_monitor.alert_schedule.get_status()
                 logger.info(
                     f"[#{check_count:4d}] RMS={rms_db:7.2f}dB | "
@@ -139,7 +153,7 @@ def main():
                     f"MusicConf={music_conf:.2f} | {schedule_status}"
                 )
 
-                # 5. Wait for next check
+                # 6. Wait for next check
                 for _ in range(int(monitor_interval)):
                     if not running:
                         break
